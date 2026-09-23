@@ -5,7 +5,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from websockets.frames import CTRL_OPCODES, DATA_OPCODES, Frame
+from websockets.frames import CTRL_OPCODES, DATA_OPCODES, Frame, Opcode
 
 from sanic.exceptions import ServerError
 from sanic.server.websockets.frame import WebsocketFrameAssembler
@@ -187,6 +187,7 @@ async def test_ws_frame_put_fetched(opcode):
     assembler = WebsocketFrameAssembler(Mock())
     assembler.message_fetched = AsyncMock()
     assembler.message_fetched.is_set = Mock(return_value=False)
+    assembler.message_fetched.clear = Mock()
 
     await assembler.put(Frame(opcode, b""))
     assembler.message_fetched.wait.assert_awaited_once()
@@ -214,12 +215,13 @@ async def test_ws_frame_put_message_into_queue(opcode):
     assembler.chunks_queue = AsyncMock(spec=Queue)
     assembler.message_fetched = AsyncMock()
     assembler.message_fetched.is_set = Mock(return_value=False)
+    assembler.message_fetched.clear = Mock()
 
     await assembler.put(Frame(opcode, b"foo"))
 
-    assembler.chunks_queue.put.has_calls(
-        call(b"foo"),
-        call(None),
+    expected_data = b"foo" if opcode is not Opcode.TEXT else "foo"
+    assembler.chunks_queue.put.assert_has_calls(
+        [call(expected_data), call(None)],
     )
 
 
